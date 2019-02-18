@@ -1,30 +1,72 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- * @flow
- * @lint-ignore-every XPLATJSCOPYRIGHT1
- */
-
 import React, {Component} from 'react';
-import {Platform, StyleSheet, Text, View} from 'react-native';
+import {Text, StyleSheet, TextInput, View,} from 'react-native';
+import MapView,{Marker} from 'react-native-maps';
+import {apiKey} from './apiKey'
 
-const instructions = Platform.select({
-  ios: 'Press Cmd+R to reload,\n' + 'Cmd+D or shake for dev menu',
-  android:
-    'Double tap R on your keyboard to reload,\n' +
-    'Shake or press menu button for dev menu',
-});
 
-type Props = {};
-export default class App extends Component<Props> {
+export default class App extends Component {
+  constructor(props){
+    super(props)
+    this.state={
+      latitude:0,
+      longitude:0,
+      error:null,
+      destination:"",
+      predictions:[]
+    }
+  }
+  componentDidMount(){
+    navigator.geolocation.getCurrentPosition(position=>{
+      this.setState({
+        latitude:position.coords.latitude,
+        longitude:position.coords.longitude,
+        error:null
+      })
+    },error=>this.setState({error:error.message}),
+    {enableHighAccuracy:true,timeout:5000,maximumAge:2000}
+    )
+  }
+  async onTextChangeDestination(destination){
+    this.setState({destination})
+    const apiURL=`https://maps.googleapis.com/maps/api/place/autocomplete/json?key=${apiKey}&input=${destination}&location=${this.state.latitude},${this.state.longitude}&radius=2000`
+    // console.log(apiURL)
+    try {
+      const result = await fetch(apiURL)
+      const json=await result.json()
+      this.setState({
+          predictions:json.predictions
+        
+        })
+    } catch (error) {
+      console.error(error)
+    }
+  }
   render() {
+    const predictions=this.state.predictions.map(prediction=>(
+      <Text style={styles.suggestions} key={prediction.id}>
+        {prediction.description}
+      </Text>
+    ))
     return (
       <View style={styles.container}>
-        <Text style={styles.welcome}>Welcome to React Native!</Text>
-        <Text style={styles.instructions}>To get started, edit App.js</Text>
-        <Text style={styles.instructions}>{instructions}</Text>
+        <MapView
+          style={styles.styleMap}
+          initialRegion={{
+            latitude: this.state.latitude,
+            longitude: this.state.longitude,
+            latitudeDelta: 0.0922,
+            longitudeDelta: 0.0421,
+          }}
+          showsUserLocation={true}
+        >
+          <Marker coordinate={this.state} />
+        </MapView>
+        <TextInput 
+          style={styles.destinationInput}
+          placeholder='Enter destination' 
+          value={this.state.destination} 
+          onChangeText={destination=>this.onTextChangeDestination(destination)} />
+          {predictions}
       </View>
     );
   }
@@ -32,19 +74,26 @@ export default class App extends Component<Props> {
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F5FCFF',
+    ...StyleSheet.absoluteFillObject
   },
-  welcome: {
-    fontSize: 20,
-    textAlign: 'center',
-    margin: 10,
+  styleMap:{
+    ...StyleSheet.absoluteFillObject
   },
-  instructions: {
-    textAlign: 'center',
-    color: '#333333',
-    marginBottom: 5,
+  destinationInput:{
+    height:40,
+    borderWidth:.1,
+    padding:5,
+    marginTop:50,
+    marginLeft:5,
+    marginRight:5,
+    backgroundColor:'white'
+  },
+  suggestions:{
+    backgroundColor:'white',
+    padding:5,
+    marginLeft:5,
+    marginRight:5,
+    borderWidth:.5,
+    fontSize:16
   },
 });
